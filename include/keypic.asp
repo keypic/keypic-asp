@@ -15,148 +15,291 @@
 '    along with this program; if not, write to the Free Software
 '    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+Response.Charset="UTF-8"
+Session.CodePage=65001
 
-session("token") = request("token")
-session("host") = "http://ws.keypic.com/"
-session("FormID") = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-'session("RequestType") = "RequestNewToken"
-session("quantity") = "1"
+class Keypic
 
+	private prToken
+	Public Property Get Token
+		Token = prToken
+	End Property
+	Public Property Let Token(strToken)
+		prToken = strToken
+	End Property
 
-if request.servervariables("REQUEST_METHOD") = "GET" then
-	if session("token")="" then
-		session("token") = spamtest("RequestNewToken")
-	end if
-end if
+	private prHost
+	Public Property Get Host
+		Host = prHost
+	End Property
+	Public Property Let Host(strHost)
+		prHost = strHost
+	End Property
 
+	private prFormID
+	Public Property Get FormID
+		FormID = prFormID
+	End Property
+	Public Property Let FormID(strFormID)
+		prFormID = strFormID
+	End Property
 
-'********************************************************************
-'* TEST FUNCTION
-'********************************************************************
-function spamtest(RequestType)
+	private prVersion
+	Public Property Get Version
+		Version = prVersion
+	End Property
+	Public Property Let Version(strVersion)
+		prVersion = strVersion
+	End Property
 
-	if session("token")<>"" then
-		strPost = strPost & "token=" & session("token") & "&"
-	end if
+	private prUserAgent
+	Public Property Get UserAgent
+		UserAgent = prUserAgent
+	End Property
+	Public Property Let UserAgent(strUserAgent)
+		prUserAgent = strUserAgent
+	End Property
 
-	strPost = strPost & "FormID=" & session("FormID")  & "&" 'Customer ID
-	strPost = strPost & "RequestType=" & RequestType  & "&"
-	strPost = strPost & "ResponseType=4&" ' XML
-	strPost = strPost & "ServerName=" & request.servervariables("SERVER_NAME")  & "&"
-	strPost = strPost & "Quantity=" & session("quantity")  & "&"
-	strPost = strPost & "ClientIP=" & request.servervariables("REMOTE_ADDR") & "&"
-	strPost = strPost & "ClientUserAgent=" & request.servervariables("HTTP_USER_AGENT") & "&"
-	strPost = strPost & "ClientAccept=" & request.servervariables("HTTP_ACCEPT") & "&"
-	strPost = strPost & "ClientAcceptEncoding=" & request.servervariables("HTTP_ACCEPT_ENCODING") & "&"
-	strPost = strPost & "ClientAcceptLanguage=" & request.servervariables("HTTP_ACCEPT_LANGUAGE") & "&"
-	strPost = strPost & "ClientAcceptCharset=" & request.servervariables("HTTP_ACCEPT_CHARSET") & "&"
-	strPost = strPost & "ClientUserAgent=" & request.servervariables("HTTP_USER_AGENT") & "&"
-	strPost = strPost & "ClientHttpReferer=" & request.servervariables("HTTP_REFERER") & "&"
-	strPost = strPost & "ClientUsername=" & ClientUsername & "&"
-	strPost = strPost & "ClientEmailAddress=" & ClientEmailAddress & "&"
-	strPost = strPost & "ClientMessage=" & ClientMessage & "&"
-	strPost = strPost & "ClientFingerprint=" & ClientFingerprint & "&"
+	private prDebug
+	Public Property Get Debug
+		Debug = prDebug
+	End Property
+	Public Property Let Debug(strDebug)
+		prDebug = strDebug
+	End Property
 
-	set http = Server.CreateObject("Microsoft.XMLHTTP") ' CreateObject("MSXML2.ServerXMLHTTP") or "Microsoft.XMLHTTP"
-	http.open "POST", session("host"), false
-	http.setRequestHeader "Content-Type", "application/x-www-form-urlencoded" & vbCrLf 'multipart/form-data
-	http.setRequestHeader "User-Agent", "ASP class / Version 0.5" & vbCrLf 
-	'http.setRequestHeader "Content-Type", "multipart/form-data; boundary=" + Boundary
+	Private Sub Class_Initialize()
+		Token = ""
+		Host = "http://ws.keypic.com/"
+		FormID = ""
+		Version = "1.0"
+		UserAgent = "ASP class / Version " & Version
+		Debug = ""
+	End Sub
 
-	if err.number = 0 then
+	Private Sub Class_Terminate()
+	End Sub
 
-		http.send strPost
+	public function setVersion(strVersion) ' return void
+		prVersion = strVersion
+	end function
 
-		http_status = cint(http.status)
+	public function setUserAgent(strUserAgent) ' return void
+		prUserAgent = strUserAgent
+	end function
 
-		if http_status = 200 then
-			set xml = Server.CreateObject("MSXML2.DOMDocument") '("Microsoft.XMLDOM") or ("MSXML2.DOMDocument") or ("MSXML2.DOMDocument.3.0") or ("Msxml2.DOMDocument.4.0") or ("Msxml2.DOMDocument.5.0 ") or ("Msxml2.DOMDocument.6.0")
-			xml.async = false
-			xml.loadxml(http.responsetext)
-			'response.write "http.responsetext = " & http.responsetext
+	public function setFormID(strFormID) ' return void
+		prFormID = strFormID
+	end function
 
-			if xml.parseerror.errorcode <> 0 then
-				response.write "XML Error: " & xml.parseerror.errorcode
-			else
-				dim xml_status
-				set xml_status = xml.documentElement.selectSingleNode("//root/status")
-				status = xml_status.text
+	public function checkFormID(FormID) ' return bool
+		Set fields = Server.CreateObject("Scripting.Dictionary")
+		fields.add "RequestType", "checkFormID"
+		fields.add "ResponseType", "4" ' xml
+		fields.add "FormID", FormID
 
-				select case RequestType
-					case "RequestNewToken"
-						if status="new_token" then
-							dim xml_token
-							set xml_token = xml.documentElement.selectSingleNode("//root/Token")
-							session("token") = xml_token.text
-						end if
-					case "RequestValidation"
-						if status="response" then
-							dim xml_spam
-							set xml_spam = xml.documentElement.selectSingleNode("//root/spam")
-							session("spam_percentage") = xml_spam.text
-						end if
-				end select
+'		checkFormID = sendRequest(fields) ' TODO: Finish it
+
+		set xml = Server.CreateObject("MSXML2.DOMDocument")
+		xml.async = false
+		xml.loadxml(sendRequest(fields))
+
+		dim xml_status
+		set xml_status = xml.documentElement.selectSingleNode("//root/status")
+		status = xml_status.text
+
+		if status = "response" then
+			set xml_report = xml.documentElement.selectSingleNode("//root/report")
+			if xml_report.text = "OK" then
+				checkFormID = true
 			end if
-
-		else
-			response.write "Error: " & status
+		elseif status = "error" then
+'			set xml_report = xml.documentElement.selectSingleNode("//root/error")
+'			spamPercentage = xml_spam.text
+			checkFormID = false
 		end if
 
-		if RequestType = "RequestNewToken" and session("token")<>"" and status="new_token" then
-			'response.write "token=" & token
-			session("img") = "<a href=""" & session("host") & "?RequestType=getClick&amp;Token=" & session("token") & """ target=""_blank""><img src=""" & session("host") & "?RequestType=getImage&amp;Token=" & session("token") & """ alt="""" /></a>"
-			spamtest = session("token")
+	end function
+
+	public function setDebug(strDebug) ' return void
+		prDebug = strDebug
+	end function
+
+	private function sendRequest(fields) ' return array
+
+		for each key in fields.Keys
+			strPost = strPost & key & "=" & fields(key) & "&"
+		next
+'response.write strPost
+		set http = Server.CreateObject("Microsoft.XMLHTTP") ' CreateObject("MSXML2.ServerXMLHTTP") or "Microsoft.XMLHTTP"
+		http.open "POST", Host, false
+		http.setRequestHeader "Content-Type", "application/x-www-form-urlencoded" & vbCrLf 'multipart/form-data
+		http.setRequestHeader "User-Agent", UserAgent & vbCrLf 
+		'http.setRequestHeader "Content-Type", "multipart/form-data; boundary=" + Boundary
+
+		if err.number = 0 then
+
+			http.send strPost
+
+			http_status = cint(http.status)
+
+			if http_status = 200 then
+				set xml = Server.CreateObject("MSXML2.DOMDocument") '("Microsoft.XMLDOM") or ("MSXML2.DOMDocument") or ("MSXML2.DOMDocument.3.0") or ("Msxml2.DOMDocument.4.0") or ("Msxml2.DOMDocument.5.0 ") or ("Msxml2.DOMDocument.6.0")
+				xml.async = false
+				xml.loadxml(http.responsetext)
+
+				if xml.parseerror.errorcode <> 0 then
+					sendRequest = "XML Error: " & xml.parseerror.errorcode
+				'else
+					
+				end if
+
+			else
+				sendRequest = "HTTP Error number: " & http_status
+			end if
 		else
-			'response.write "status=" & status
-			spamtest = status
+			'response.write "err.number: " & err.number
+			'In case the WASF is unreachable 
+			sendRequest = "err.number: " & err.number
 		end if
 
-	else
-		'response.write "err.number: " & err.number
-		'In case the WASF is unreachable 
-		spamtest = ""
-	end if
-		
-end function
+		sendRequest = http.responsetext
+
+	end function
+
+	public function getToken(localToken, ClientEmailAddress, ClientUsername, ClientMessage, ClientFingerprint) ' return array
+		Token = localToken
+		Set fields = Server.CreateObject("Scripting.Dictionary")
+
+		if Token <> "" then
+			fields.add "token", Token
+		end if
+
+		fields.add "FormID", FormID
+		fields.add "RequestType", "RequestNewToken"
+		fields.add "ResponseType", 4
+		fields.add "ServerName", request.servervariables("SERVER_NAME")
+		fields.add "Quantity", 1
+		fields.add "ClientIP", request.servervariables("REMOTE_ADDR")
+		fields.add "ClientUserAgent", request.servervariables("HTTP_USER_AGENT")
+		fields.add "ClientAccept", request.servervariables("HTTP_ACCEPT")
+		fields.add "ClientAcceptEncoding", request.servervariables("HTTP_ACCEPT_ENCODING")
+		fields.add "ClientAcceptLanguage", request.servervariables("HTTP_ACCEPT_LANGUAGE")
+		fields.add "ClientAcceptCharset", request.servervariables("HTTP_ACCEPT_CHARSET")
+		fields.add "ClientHttpReferer", request.servervariables("HTTP_REFERER")
+		fields.add "ClientUsername", ClientUsername
+		fields.add "ClientEmailAddress", ClientEmailAddress
+		fields.add "ClientMessage", ClientMessage
+		fields.add "ClientFingerprint", ClientFingerprint
+
+		set xml = Server.CreateObject("MSXML2.DOMDocument")
+		xml.async = false
+		xml.loadxml(sendRequest(fields))
+
+		dim xml_status
+		set xml_status = xml.documentElement.selectSingleNode("//root/status")
+		status = xml_status.text
+
+		if status = "new_token" then
+			dim xml_token
+			set xml_token = xml.documentElement.selectSingleNode("//root/Token")
+			Token = xml_token.text
+		elseif status = "error" then
+			getToken = "error"
+		end if
+
+		getToken = Token
+	end function
+
+	public function getImage(WeightHeight) ' return string
+		getImage = "<a href=""" & Host & "?RequestType=getClick&amp;Token=" & Token & """ target=""_blank""><img src=""" & Host & "?RequestType=getImage&amp;WeightHeight=" & WeightHeight & "&amp;Debug=" & Debug & "&amp;Token=" & Token & """ alt=""Form protected by Keypic"" /></a>"
+	end function
+
+	public function getiFrame(WeightHeight) ' return String
+	end function
+
+	public function isSpam(localToken, ClientEmailAddress, ClientUsername, ClientMessage, ClientFingerprint) ' return int
+		Token = localToken
+
+		Set fields = Server.CreateObject("Scripting.Dictionary")
+
+		if Token <> "" then
+			fields.add "token", Token
+		end if
+
+		fields.add "FormID", FormID
+		fields.add "RequestType", "RequestValidation"
+		fields.add "ResponseType", 4
+		fields.add "ServerName", request.servervariables("SERVER_NAME")
+		fields.add "Quantity", 1
+		fields.add "ClientIP", request.servervariables("REMOTE_ADDR")
+		fields.add "ClientUserAgent", request.servervariables("HTTP_USER_AGENT")
+		fields.add "ClientAccept", request.servervariables("HTTP_ACCEPT")
+		fields.add "ClientAcceptEncoding", request.servervariables("HTTP_ACCEPT_ENCODING")
+		fields.add "ClientAcceptLanguage", request.servervariables("HTTP_ACCEPT_LANGUAGE")
+		fields.add "ClientAcceptCharset", request.servervariables("HTTP_ACCEPT_CHARSET")
+		fields.add "ClientHttpReferer", request.servervariables("HTTP_REFERER")
+		fields.add "ClientUsername", ClientUsername
+		fields.add "ClientEmailAddress", ClientEmailAddress
+		fields.add "ClientMessage", ClientMessage
+		fields.add "ClientFingerprint", ClientFingerprint
 
 
-'********************************************************************
-'* SHOW RESULTS FUNCTION
-'********************************************************************
-function show_results()
-	if request.servervariables("REQUEST_METHOD") = "POST" then
+		set xml = Server.CreateObject("MSXML2.DOMDocument")
+		xml.async = false
+		xml.loadxml(sendRequest(fields))
 
-			spamtest("RequestValidation")
+		dim xml_status
+		set xml_status = xml.documentElement.selectSingleNode("//root/status")
+		status = xml_status.text
 
-			show_results = "This message has " & session("spam_percentage") & "% of spam probability<br />" & vbCrLf
-	end if
-end function
+		dim xml_spam
+		if status = "response" then
+			set xml_spam = xml.documentElement.selectSingleNode("//root/spam")
+			spamPercentage = xml_spam.text
+		elseif status = "error" then
+			set xml_spam = xml.documentElement.selectSingleNode("//root/error")
+			spamPercentage = xml_spam.text
+		end if
 
+		isSpam = spamPercentage
+	end function
 
-'********************************************************************
-'* Version 1.0 Must be like this
-'********************************************************************
-'class Keypic
-'
-'	public sub setVersion(string version) ' return void
-'	public sub setUserAgent(string UserAgent) ' return void
-'	public sub setFormID(string FormID) ' return void
-'	public sub checkFormID(string FormID) ' return bool
-'	public sub setDebug(bool Debug) ' return void
-'	private sub sendRequest(array fields) ' return array
-'	public sub getToken(string Token, string ClientEmailAddress = "", string ClientUsername = "", string ClientMessage = "", string ClientFingerprint = "") ' return array
-'	public sub getImage(string WeightHeight = null, string Debug = null) ' return string
-'	public sub getiFrame(string WeightHeight = null) ' return String
-'	public sub isSpam(string Token, string ClientEmailAddress = "", string ClientUsername = "", string ClientMessage = "", string ClientFingerprint = "") ' return int
-'	public sub reportSpam(string Token) ' return bool
-'
-'end class
-'
-'Set kp = New Keypic
-'
-'kp.SetVersion = ""
-'kp.SetUserAgent = ""
-'kp.setFormID = ""
+	public function reportSpam(Token) ' return bool
+		if Token = "" then
+			reportSpam "error"
+		end if
 
+		if FormID = "" then
+			reportSpam "error"
+		end if
+
+		Set fields = Server.CreateObject("Scripting.Dictionary")
+
+		fields.add "Token", Token
+		fields.add "FormID", FormID
+		fields.add "RequestType", "ReportSpam"
+		fields.add "ResponseType", 4
+
+		set xml = Server.CreateObject("MSXML2.DOMDocument")
+		xml.async = false
+		xml.loadxml(sendRequest(fields))
+
+		dim xml_status
+		set xml_status = xml.documentElement.selectSingleNode("//root/status")
+		status = xml_status.text
+
+' TODO: finish it!
+'		if status = "response" then
+'			set xml_spam = xml.documentElement.selectSingleNode("//root/spam")
+'			spamPercentage = xml_spam.text
+'		elseif status = "error" then
+'			set xml_spam = xml.documentElement.selectSingleNode("//root/error")
+'			spamPercentage = xml_spam.text
+'		end if
+		reportSpam = "TODO"
+	end function
+
+end class
 
 %>
