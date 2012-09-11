@@ -73,7 +73,7 @@ class Keypic
 		Host = "http://ws.keypic.com/"
 		FormID = ""
 		Version = "1.0"
-		UserAgent = "ASP class / Version " & Version
+		UserAgent = "Keypic ASP Class, Version: " & Version
 		Debug = ""
 	End Sub
 
@@ -289,15 +289,17 @@ class Keypic
 		set xml_status = xml.documentElement.selectSingleNode("//root/status")
 		status = xml_status.text
 
-' TODO: finish it!
-'		if status = "response" then
-'			set xml_spam = xml.documentElement.selectSingleNode("//root/spam")
+		if status = "response" then
+			set xml_report = xml.documentElement.selectSingleNode("//root/report")
+			if xml_report.text = "OK" then
+				reportSpam = true
+			end if
+		elseif status = "error" then
+'			set xml_report = xml.documentElement.selectSingleNode("//root/error")
 '			spamPercentage = xml_spam.text
-'		elseif status = "error" then
-'			set xml_spam = xml.documentElement.selectSingleNode("//root/error")
-'			spamPercentage = xml_spam.text
-'		end if
-		reportSpam = "TODO"
+			reportSpam = false
+		end if
+
 	end function
 
 end class
